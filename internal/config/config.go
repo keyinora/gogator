@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -40,13 +41,53 @@ func Read() (Config, error) {
 	return cfg, nil
 }
 
+// func getConfigFilePath() (string, error) {
+// 	home, err := os.UserHomeDir()
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	fullPath := filepath.Join(home, configFileName)
+// 	return fullPath, nil
+// }
+
 func getConfigFilePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to get user home directory: %w", err)
 	}
+
 	fullPath := filepath.Join(home, configFileName)
+
+	// Check if the file exists, if not, create it
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		err := createDefaultConfigFile(fullPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to create default config file: %w", err)
+		}
+	}
+
 	return fullPath, nil
+}
+
+func createDefaultConfigFile(path string) error {
+	// The username and password should not be included here
+	// However as this is a local application and the github is set to private
+	// we can leave for now
+	defaultConfig := Config{
+		DBURL: "postgres://postgres:postgres@localhost:5432/gator?sslmode=disable",
+	}
+
+	data, err := json.MarshalIndent(defaultConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal default config: %w", err)
+	}
+
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write default config file: %w", err)
+	}
+
+	return nil
 }
 
 func write(cfg Config) error {
