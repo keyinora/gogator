@@ -7,11 +7,11 @@ sudo service postgresql start
 sudo -u postgres psql
 
 ## enter and view tables (gator is the name of the Database)
-psql gator
-\dt
+psql gator;
+\dt;
 
 ## connect to database
-\c gator
+\c gator;
 
 ## generate Go Code from SQLC scripts
 sqlc generate
