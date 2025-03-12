@@ -9,27 +9,50 @@ import (
 	"github.com/keyinora/gogator/internal/database"
 )
 
-func handlerFollowing(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+		if err != nil {
+			return err
+		}
+		return handler(s, cmd, user)
 	}
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: %s <url>", cmd.Name)
+	}
+
+	url := cmd.Args[0]
+
+	params := database.DeleteFeedFollowsForUserParams{
+		Url:    url,
+		UserID: user.ID,
+	}
+
+	_, err := s.db.DeleteFeedFollowsForUser(context.Background(), params)
+	if err != nil {
+		return fmt.Errorf("error while attempting to delete feed follow: %s", err)
+	}
+
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command, user database.User) error {
 
 	feeds, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err == nil {
 		for i := 0; len(feeds) > i; i++ {
-			fmt.Printf("%s\n", feeds[i].Name)
+			fmt.Printf("%s\n", feeds[i].FeedName)
 		}
 	}
 
 	return err
 }
 
-func handlerFollow(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
-	}
+func handlerFollow(s *state, cmd command, user database.User) error {
 
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: %s <url>", cmd.Name)
@@ -59,11 +82,7 @@ func handlerFollow(s *state, cmd command) error {
 	return err
 }
 
-func handlerAddFeed(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
-	}
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf("usage: %s <name> <url>", cmd.Name)
